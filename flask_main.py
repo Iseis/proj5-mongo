@@ -16,6 +16,8 @@ import flask
 from flask import render_template
 from flask import request
 from flask import url_for
+from flask import jsonify # For AJAX transactions
+
 
 import json
 import logging
@@ -24,6 +26,7 @@ import logging
 import arrow # Replacement for datetime, based on moment.js
 import datetime # But we may still need time
 from dateutil import tz  # For interpreting local times
+
 
 # Mongo database
 from pymongo import MongoClient
@@ -62,11 +65,11 @@ def index():
   return flask.render_template('index.html')
 
 
-# We don't have an interface for creating memos yet
-# @app.route("/create")
-# def create():
-#     app.logger.debug("Create")
-#     return flask.render_template('create.html')
+# Just give the client the requested create.html file
+@app.route("/create")
+def create():
+    app.logger.debug("Create")
+    return flask.render_template('create.html')
 
 
 @app.errorhandler(404)
@@ -76,21 +79,79 @@ def page_not_found(error):
                                  badurl=request.base_url,
                                  linkback=url_for("index")), 404
 
-#################
-#
-# Functions used within the templates
-#
-#################
 
-# NOT TESTED with this application; may need revision 
-#@app.template_filter( 'fmtdate' )
-# def format_arrow_date( date ):
-#     try: 
-#         normal = arrow.get( date )
-#         return normal.to('local').format("ddd MM/DD/YYYY")
-#     except:
-#         return "(bad date)"
+################
+#
+# Stores the memo in the db
+#
+###############
+@app.route("/_store")
+def store():
+    """"
+    Gets the memo and date from create.html
+    then stores it in the db then returns
+    """
+    app.logger.debug("Entering db handling")
+    text = request.args.get("text", type=str)
+    date = request.args.get("date", type=str)
+    app.logger.debug("text: " + text)
+    app.logger.debug("date: " + date)
 
+    #take date and localize it and store it in isoformat
+    aDate = arrow.get(date, 'MM/DD/YYYY').replace(tzinfo='local')
+    fDate = aDate.isoformat()
+    record = { "type": "dated_memo",
+           "date":  fDate,
+           "text": text
+          }
+
+    collection.insert(record)
+    rslt = True
+    return jsonify(result=rslt)
+
+
+
+###################
+#
+# Deletes the list of memos
+#
+##################
+@app.route("/_delete")
+def delete():
+    """"
+    Deletes all selected memos
+    Expects a list memo _ids
+    Then splits them
+    """
+    memos = request.args.get("memos", type=str)
+    app.logger.debug("Memo Ids: " + memos)
+
+    remove_memos(memos)
+    #return garbage
+    rslt = True
+    return jsonify(result=rslt)
+
+
+###########
+#
+# just removes memos from db
+#
+##########
+def remove_memos(mems):
+    """
+    :param mems: list of memo ids
+    :return: nothing
+    """
+    #Split it up so we can search for multiple _ids
+    ids = mems.split(" ")
+    for entry in collection.find():
+        #Now delete if we find it
+        if str(entry["_id"]) in ids:
+            collection.remove(entry)
+    return
+
+
+#used to humanize the date within the client
 @app.template_filter( 'humanize' )
 def humanize_arrow_date( date ):
     """
@@ -102,8 +163,13 @@ def humanize_arrow_date( date ):
     try:
         then = arrow.get(date).to('local')
         now = arrow.utcnow().to('local')
+        tomorrow = now.replace(days=1)
         if then.date() == now.date():
             human = "Today"
+        elif then.humanize(now) == "a day ago":
+            human = "Yesterday"
+        elif tomorrow.date() == then.date():
+            human = "Tomorrow"
         else: 
             human = then.humanize(now)
             if human == "in a day":
@@ -115,7 +181,7 @@ def humanize_arrow_date( date ):
 
 #############
 #
-# Functions available to the page code above
+# Just gets all the memos in the db stores them in a dict sorts then and returns it
 #
 ##############
 def get_memos():
@@ -124,11 +190,20 @@ def get_memos():
     can be inserted directly in the 'session' object.
     """
     records = [ ]
+    #if collection is empty return empty records
+    if collection.count() == 0:
+        return records
+
     for record in collection.find( { "type": "dated_memo" } ):
         record['date'] = arrow.get(record['date']).isoformat()
-        del record['_id']
+
+        #used for saving memos
+        record['_id'] = str(record['_id'])
         records.append(record)
-    return records 
+
+        #sort the memos
+        sorted_records = sorted(records, key=lambda x: x["date"])
+    return sorted_records
 
 
 if __name__ == "__main__":

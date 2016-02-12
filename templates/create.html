@@ -13,9 +13,19 @@
   <!-- Bootstrap includes javascript and css  (must follow jquery) -->
   <link rel="stylesheet"
    href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
-   <script
+
+    <!-- Include Required Prerequisites -->
+    <script type="text/javascript" src="//cdn.jsdelivr.net/jquery/1/jquery.min.js"></script>
+    <script type="text/javascript" src="//cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="//cdn.jsdelivr.net/bootstrap/latest/css/bootstrap.css" />
+
+    <!-- Include Date Range Picker -->
+    <script type="text/javascript" src="//cdn.jsdelivr.net/bootstrap.daterangepicker/2/daterangepicker.js"></script>
+    <link rel="stylesheet" type="text/css" href="//cdn.jsdelivr.net/bootstrap.daterangepicker/2/daterangepicker.css" />
+
+    <script
     src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js">
-</script>
+    </script>
 
    <!-- Our own style sheet -->
    <link rel="stylesheet" href="/static/css/memos.css" />
@@ -24,31 +34,75 @@
 </head>
 <body>
 <div class="container">
-<h1>Create a Memo</h1>
 
-<!-- Flashed messages before content -->
-{% with messages = get_flashed_messages() %}
-  {% if messages %}
-    <ul class=flashes>
-    {% for message in messages %}
-      <li>{{ message }}</li>
-    {% endfor %}
-    </ul>
-  {% endif %}
-{% endwith %}
 
-<form method="PUT" action="_create">
-<div class="row">
-    <div class="col-md-2">
-    <input type="text" class="form-control"
-     name="Date" value=""/>
-  </div>
-  <div class="col-md-10">
-    <input type="text" class="form-control"
-      name="Memo" value="Memo" />
-  </div>
- </div>
+<form class="form-horizontal">
+    <div class="form-group">
+        <h1>Create a Memo</h1>
+    </div>
+    <div class="form-group" >
+        <label for="date" class="col-sm-2 control-label">Memo Date</label>
+        <div class="col-sm-2">
+            <input type="text" class="form-control" name="Date" id="date" placeholder="Date.."/>
+        </div>
+    </div>
+    <div class="form-group">
+        <textarea class="col-lg-7" rows="20" id="memo" placeholder=""></textarea>
+    </div>
+    <div class="col-sm">
+        <button type="button" class="btn" id="save_memo">Save</button>
+        <button type="button" class="btn" id="cancel_memo">Cancel</button>
+    </div>
 </form>
-</div> 
+</div>
+<!-- Start the script -->
+<script type="text/javascript">
+
+    var date = "";
+
+    //Function for the date picker to get the date.
+    $(function() {
+        $('input[name="Date"]').daterangepicker({
+            singleDatePicker: true,
+            showDropdowns: true
+        })
+
+    });
+
+    //Listen for when the calander has been selected. then set date var.
+    $('#date').on('hide.daterangepicker', function(ev, picker) {
+        date = $( '#date').val();
+    });
+
+    //Canceling the memo entry go back to index.html
+    document.getElementById('cancel_memo').onclick = function() {
+        window.location.replace("index");
+    };
+
+    //When the Save button is pressed wrap up memo and send it to be stored. Then return to index
+    document.getElementById('save_memo').onclick = function() {
+        var text =$( '#memo' ).val();
+
+        //if no text send a warning.
+        if( text == "" ){
+            alert("Memo has no text Can't save.");
+            return;
+        }
+
+        // get the date
+        date = $( '#date').val();
+
+   		//Send memo to server then go back to index page
+        $.getJSON("/_store", { text: text, date: date },
+                function() {
+                    window.location.replace("index");
+                }
+        );
+
+
+    };
+</script>
+
+
 </body>
 </html>

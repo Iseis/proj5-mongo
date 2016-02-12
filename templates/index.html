@@ -36,16 +36,25 @@
   {% endif %}
 {% endwith %}
 
-<h1>Memos</h1>
+<div class="row">
+    <div class="col-sm-4">
+        <h1>Memos
+            <button type="button" class="btn" id="create">Create Memo</button>
+            <button type="button" class="btn" id="delete">Delete</button>
+        </h1>
+    </div>
+</div>
+
 
 {% if session.memos %}
     {% for memo in session.memos %}
   <div class="memo">
   <div class="row">
   <div class="col-md-2">
-    {{ memo.date | humanize }}
+      <input type="checkbox" id="{{ memo._id }}">
+      {{ memo.date | humanize }}
   </div>
-  <div class="col-md-10">
+  <div class="col-md-10" id="memo">
     {{ memo.text }}
   </div>
   </div> <!-- row -->
@@ -55,8 +64,41 @@
   <p>No memos for you. </p>  
 {% endif %}
 
- 
-
 </div> <!-- container -->
+
+<!-- Start the script now -->
+<script>
+
+  // If user wants to create memo redirect to create page
+  document.getElementById('create').onclick = function() {
+    window.location.replace("create");
+  };
+
+  //we want to delete selected memos
+  document.getElementById('delete').onclick = function() {
+    var memos = "";
+
+    //for all checked boxes
+    $('input[type=checkbox]').each(function() {
+        //if current box is checked add the memo id to a list of memo ids
+        if(this.checked){
+            console.log(this.id);
+            memos = memos + " " + this.id;
+         }
+
+        console.log(memos);
+        //now pass list to server to be deleted and reload page
+        $.getJSON("/_delete", { memos: memos },
+                function() {
+
+                    //reload the window
+                    window.location.replace("index");
+                }
+        );//end getJson
+    })
+  };
+
+</script>
+
 </body>
 </html>
